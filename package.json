@@ -21,6 +21,8 @@
   },
   "homepage": "https://github.com/tosh823/kaltiot-server#readme",
   "dependencies": {
-    "express": "^4.15.2"
+    "express": "^4.15.2",
+    "mongodb": "^2.2.25",
+    "ws": "^2.2.2"
   }
 }
