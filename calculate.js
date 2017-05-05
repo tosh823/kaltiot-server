@@ -80,7 +80,7 @@ function getLocation(triangle) {
         var point3 = map[triangle[2].beaconID];
         var d = getDistanceBetweenPoints(point1, point2);
         // Except cases when there are no solutions
-        if (d > (triangle[0].dist + triangle[1].dist) || d < Math.abs(triangle[0].dist - triangle[1].dist)) return null;
+        //if (d > (triangle[0].dist + triangle[1].dist) || d < Math.abs(triangle[0].dist - triangle[1].dist)) return null;
         var a = (Math.pow(triangle[0].dist, 2) - Math.pow(triangle[1].dist, 2) + Math.pow(d, 2)) / (2 * d);
         var h = Math.sqrt(Math.pow(triangle[0].dist, 2) - Math.pow(a, 2));
         var mid = {
@@ -97,10 +97,11 @@ function getLocation(triangle) {
         };
         var distToLoc1 = getDistanceBetweenPoints(point3, location1);
         var distToLoc2 = getDistanceBetweenPoints(point3, location2);
-        if (distToLoc1 > triangle[2].dist) return location2;
-        else return location1;
+        if (Math.abs(triangle[2].dist - distToLoc1) < Math.abs(triangle[2].dist - distToLoc2)) return location1;
+        else return location2;
     }
 }
+
 function getDistanceBetweenPoints(a, b) {
     return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
 }
@@ -155,15 +156,18 @@ MongoClient.connect(mongoURL, function (err, db) {
                 var targetID = Object.keys(target)[0];
                 var shortID = getBeaconID(targetID);
                 if (!Object.keys(cornerBeacons).includes(shortID)) {
-                    var triangle = [];
+                    //var triangle = [];
+                    if (map[shortID] == null) map[shortID] = {};
+                    if (map[shortID].distances == null) map[shortID].distances = [];
                     // Searching for corner beacons
                     for (var corner in cornerBeacons) {
                         var distToCorner = getRSSIto(corner, doc.payload.beacons);
                         if (distToCorner != null) {
-                            triangle.push({ beaconID: corner, dist: getDistance(distToCorner) });
+                            //triangle.push({ beaconID: corner, dist: getDistance(distToCorner) });
+                            map[shortID].distances.push({ beaconID: corner, dist: getDistance(distToCorner) });
                         }
                     }
-                    if (triangle.length > 2) {
+                    /*if (triangle.length > 2) {
                         // Calculating approximate location, based on distance to corners
                         var targetLocation = getLocationManual(triangle);
                         if (targetLocation != null) {
@@ -177,13 +181,13 @@ MongoClient.connect(mongoURL, function (err, db) {
                     }
                     else {
                         // Here we can try to fetch distance to other beacons and use them
-                    }
+                    }*/
                 }
             }
         }
         db.close();
         // Calculate average
-        for (var node in map) {
+        /*for (var node in map) {
             if (node.all != null) {
                 var sumX = 0;
                 var sumY = 0;
@@ -194,7 +198,30 @@ MongoClient.connect(mongoURL, function (err, db) {
                 node.x = sumX / node.all.length;
                 node.y = sumY / node.all.length;
             }
+        }*/
+        for (var node in map) {
+            var beacon = map[node];
+            beacon.averages = [];
+            if (Object.keys(cornerBeacons).includes(node)) continue;
+            for (var corner in cornerBeacons) {
+                var distance = 0;
+                var count = 0;
+                for (var measure in beacon.distances) {
+                    if (beacon.distances[measure].beaconID == corner) {
+                        distance += beacon.distances[measure].dist;
+                        count += 1;
+                    }
+                }
+                beacon.averages.push({
+                    beaconID: corner,
+                    dist: distance / count
+                });
+            }
+            beacon.location = getLocation(beacon.averages);
+            beacon.locationM = getLocationManual(beacon.averages);
         }
-        console.log(map);
+        for (var node in map) {
+            console.log(node + ' - ' + JSON.stringify(map[node].location) + ' or ' + JSON.stringify(map[node].locationM));
+        }
     });
 });
