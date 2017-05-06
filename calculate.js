@@ -102,6 +102,82 @@ function getLocation(triangle) {
     }
 }
 
+/* Circle format is 
+    {
+        x:
+        y:
+        r:
+    }
+*/
+function getIntersection(circle1, circle2, circle3) {
+    var d = getDistanceBetweenPoints(circle1, circle2);
+    // Exclude non existent cases
+    if (d > (circle1.r + circle2.r)) return false;
+    if (d < Math.abs(circle1.r - circle2.r)) return false;
+    var a = (Math.pow(circle1.r, 2) - Math.pow(circle2.r, 2) + Math.pow(d, 2)) / (2 * d);
+    var h = Math.sqrt(Math.pow(circle1.r, 2) - Math.pow(a, 2));
+    var mid = {
+        x: circle1.x + a * (circle2.x - circle1.x) / d,
+        y: circle1.y + a * (circle2.y - circle1.y) / d
+    };
+    var location1 = {
+        x: mid.x + h * (circle2.y - circle1.y) / d,
+        y: mid.y - h * (circle2.x - circle1.x) / d,
+    };
+    var location2 = {
+        x: mid.x - h * (circle2.y - circle1.y) / d,
+        y: mid.y + h * (circle2.x - circle1.x) / d,
+    };
+    var distToLoc1 = getDistanceBetweenPoints(circle3, location1);
+    var distToLoc2 = getDistanceBetweenPoints(circle3, location2);
+    if (Math.abs(circle3.r - distToLoc1) < Math.abs(circle3.r - distToLoc2)) return location1;
+    else return location2;
+}
+
+function getIntersectionUltimate(circle1, circle2, circle3) {
+    var p1 = circle1;
+    var p2 = circle2;
+    var p3 = circle3;
+    var solutionExist = function(c1, c2) {
+        var distance = getDistanceBetweenPoints(c1, c2);
+        if (distance > (c1.r + c2.r)) return false;
+        if (distance < Math.abs(c1.r - c2.r)) return false;
+        return true;
+    }
+    // Exclude non existent cases
+    if (!solutionExist(p1, p2)) {
+        p1 = circle1;
+        p2 = circle3;
+        p3 = circle2;
+        if (!solutionExist(p1, p2)) {
+            p1 = circle2;
+            p2 = circle3;
+            p3 = circle1;
+            // Alright, there no way to calculate this shit
+            if (!solutionExist(p1, p2)) return false;
+        }
+    }
+    var d = getDistanceBetweenPoints(p1, p2);
+    var a = (Math.pow(p1.r, 2) - Math.pow(p2.r, 2) + Math.pow(d, 2)) / (2 * d);
+    var h = Math.sqrt(Math.pow(p1.r, 2) - Math.pow(a, 2));
+    var mid = {
+        x: p1.x + a * (p2.x - p1.x) / d,
+        y: p1.y + a * (p2.y - p1.y) / d
+    };
+    var location1 = {
+        x: mid.x + h * (p2.y - p1.y) / d,
+        y: mid.y - h * (p2.x - p1.x) / d,
+    };
+    var location2 = {
+        x: mid.x - h * (p2.y - p1.y) / d,
+        y: mid.y + h * (p2.x - p1.x) / d,
+    };
+    var distToLoc1 = getDistanceBetweenPoints(p3, location1);
+    var distToLoc2 = getDistanceBetweenPoints(p3, location2);
+    if (Math.abs(p3.r - distToLoc1) < Math.abs(p3.r - distToLoc2)) return location1;
+    else return location2;
+}
+
 function getDistanceBetweenPoints(a, b) {
     return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
 }
@@ -142,6 +218,40 @@ function getLocationManual(triangle) {
     }
 }
 
+function getIntersectionManual(circle1, circle2, circle3) {
+    var p1 = circle1;
+    var p2 = circle2;
+    var p3 = circle3;
+    var r1 = circle1.r;
+    var r2 = circle2.r;
+    var r3 = circle3.r;
+    // Rearrange points, so that second is not on the same column as first or third
+    if (p1.x == p2.x) {
+        p2 = circle3;
+        r2 = circle3.r;
+        p3 = circle2;
+        r3 = circle2.r;
+    }
+    else if (p3.x == p2.x) {
+        p2 = circle1;
+        r2 = circle1.r;
+        p1 = circle2;
+        r1 = circle2.r;
+    }
+    var rxy = function (point, distance) {
+        return (Math.pow(distance, 2) - Math.pow(point.x, 2) - Math.pow(point.y, 2)) / 2;
+    };
+    var common = (p1.x - p2.x) / (p3.x - p2.x);
+    var yNumerator = rxy(p3, r3) * common - rxy(p2, r2) * common + rxy(p2, r2) - rxy(p1, r1);
+    var yDenominator = (p2.y - p3.y) * common - (p2.y - p1.y);
+    var y = yNumerator / yDenominator;
+    var x = (rxy(p2, r2) - rxy(p1, r1) + y * (p2.y - p1.y)) / (p1.x - p2.x);
+    return {
+        x: x,
+        y: y
+    };
+}
+
 MongoClient.connect(mongoURL, function (err, db) {
     assert.equal(null, err);
     console.log("Successfully connected to database");
@@ -154,74 +264,62 @@ MongoClient.connect(mongoURL, function (err, db) {
             var target = getClosest(doc.payload.beacons);
             if (target != null) {
                 var targetID = Object.keys(target)[0];
+                var distToTarget = getDistance(doc.payload.beacons[targetID]);
                 var shortID = getBeaconID(targetID);
                 if (!Object.keys(cornerBeacons).includes(shortID)) {
-                    //var triangle = [];
+                    var triangle = [];
+                    var control = [];
                     if (map[shortID] == null) map[shortID] = {};
-                    if (map[shortID].distances == null) map[shortID].distances = [];
+                    if (map[shortID].measurements == null) map[shortID].measurements = [];
                     // Searching for corner beacons
                     for (var corner in cornerBeacons) {
                         var distToCorner = getRSSIto(corner, doc.payload.beacons);
                         if (distToCorner != null) {
-                            //triangle.push({ beaconID: corner, dist: getDistance(distToCorner) });
-                            map[shortID].distances.push({ beaconID: corner, dist: getDistance(distToCorner) });
+                            var circle = {
+                                x: cornerBeacons[corner].x,
+                                y: cornerBeacons[corner].y,
+                                r: getDistance(distToCorner)
+                            };
+                            triangle.push(circle);
+                            if (control.length < 2) control.push(circle);
                         }
                     }
-                    /*if (triangle.length > 2) {
-                        // Calculating approximate location, based on distance to corners
-                        var targetLocation = getLocationManual(triangle);
-                        if (targetLocation != null) {
-                            map[shortID] = targetLocation;
-                            if (map[shortID].all == null) {
-                                map[shortID].all = [];
-                                map[shortID].all.push(targetLocation);
-                            }
-                            else map[shortID].all.push(targetLocation);
-                        }
-                    }
-                    else {
-                        // Here we can try to fetch distance to other beacons and use them
-                    }*/
+                    if (triangle.length < 3) continue;
+                    // Firstly define the location from which signal was emitted
+                    // Beacuse even smallest number with RSSI formula gives like 1 meter
+                    var origin = getIntersection(triangle[0], triangle[1], triangle[2]);
+                    if (!origin) continue;
+                    control.push({
+                        x: origin.x,
+                        y: origin.y,
+                        r: distToTarget
+                    });
+                    // Then calculate our beacon by two corners and this origin
+                    var targetLocation = getIntersection(control[0], control[1], control[2]);
+                    if (!targetLocation) continue;
+                    map[shortID].measurements.push(targetLocation);
                 }
             }
         }
         db.close();
         // Calculate average
-        /*for (var node in map) {
-            if (node.all != null) {
-                var sumX = 0;
-                var sumY = 0;
-                for (var i = 0; i < node.all.length; i++) {
-                    sumX += node.all[i].x;
-                    sumY += node.all[i].y;
-                }
-                node.x = sumX / node.all.length;
-                node.y = sumY / node.all.length;
-            }
-        }*/
         for (var node in map) {
             var beacon = map[node];
-            beacon.averages = [];
-            if (Object.keys(cornerBeacons).includes(node)) continue;
-            for (var corner in cornerBeacons) {
-                var distance = 0;
-                var count = 0;
-                for (var measure in beacon.distances) {
-                    if (beacon.distances[measure].beaconID == corner) {
-                        distance += beacon.distances[measure].dist;
-                        count += 1;
-                    }
+            if (beacon.measurements != null) {
+                var sumX = 0;
+                var sumY = 0;
+                for (var i = 0; i < beacon.measurements.length; i++) {
+                    sumX += beacon.measurements[i].x;
+                    sumY += beacon.measurements[i].y;
                 }
-                beacon.averages.push({
-                    beaconID: corner,
-                    dist: distance / count
-                });
+                beacon.location = {
+                    x: sumX / beacon.measurements.length,
+                    y: sumY / beacon.measurements.length
+                }
             }
-            beacon.location = getLocation(beacon.averages);
-            beacon.locationM = getLocationManual(beacon.averages);
         }
         for (var node in map) {
-            console.log(node + ' - ' + JSON.stringify(map[node].location) + ' or ' + JSON.stringify(map[node].locationM));
+            console.log(node + ' - ' + JSON.stringify(map[node].location));
         }
     });
 });
