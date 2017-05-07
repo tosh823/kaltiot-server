@@ -1,7 +1,7 @@
 const assert = require('assert');
 const mongodb = require('mongodb');
 
-const mongoURL = 'mongodb://localhost:27017/kaltiot'
+const mongoURL = 'mongodb://localhost:27017/kaltiot';
 
 var MongoClient = mongodb.MongoClient;
 
@@ -169,22 +169,20 @@ function calculateAverages() {
         var beacon = map[node];
         if (beacon.measurements != null) {
             var sumX = 0;
-            var countX = 0;
+            var count = 0;
             var sumY = 0;
-            var countY = 0;
             for (var i = 0; i < beacon.measurements.length; i++) {
-                if (beacon.measurements[i].x > -margin && beacon.measurements[i].x < (grid + margin)) {
+                var xCond = (beacon.measurements[i].x > -margin && beacon.measurements[i].x < (grid + margin));
+                var yCond = (beacon.measurements[i].y > -margin && beacon.measurements[i].y < (grid + margin));
+                if (xCond && yCond) {
                     sumX += beacon.measurements[i].x;
-                    countX += 1;
-                }
-                if (beacon.measurements[i].y > -margin && beacon.measurements[i].y < (grid + margin)) {
                     sumY += beacon.measurements[i].y;
-                    countY += 1;
+                    count += 1;
                 }
             }
             beacon.location = {
-                x: sumX / countX,
-                y: sumY / countY
+                x: sumX / count,
+                y: sumY / count
             }
         }
     }
@@ -270,7 +268,7 @@ MongoClient.connect(mongoURL, function (err, db) {
                         y: origin.y,
                         r: distToTarget
                     });
-                    map[shortID].measurements.push(origin);
+                    //map[shortID].measurements.push(origin);
                     // Then calculate our beacon by two corners and this origin
                     var targetLocation = getIntersection(control[0], control[1], control[2]);
                     if (!targetLocation) continue;
