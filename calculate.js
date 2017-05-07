@@ -16,7 +16,19 @@ var map = {
     '5d': { real: { x: 0, y: 0 }, location: { x: 0, y: 0 } },
     '5a': { real: { x: 0, y: 6 }, location: { x: 0, y: 6 } },
     '51': { real: { x: 6, y: 6 }, location: { x: 6, y: 6 } },
-    '5c': { real: { x: 6, y: 0 }, location: { x: 6, y: 0 } }
+    '5c': { real: { x: 6, y: 0 }, location: { x: 6, y: 0 } },
+    '52': { real: { x: 2, y: 6 } },
+    '53': { real: { x: 4, y: 6 } },
+    '57': { real: { x: 0, y: 4 } },
+    '64': { real: { x: 2, y: 4 } },
+    '8f': { real: { x: 4, y: 4 } },
+    '54': { real: { x: 6, y: 4 } },
+    '55': { real: { x: 0, y: 2 } },
+    '5e': { real: { x: 2, y: 2 } },
+    '58': { real: { x: 4, y: 2 } },
+    '5f': { real: { x: 6, y: 2 } },
+    '56': { real: { x: 2, y: 0 } },
+    '62': { real: { x: 4, y: 0 } }
 };
 
 // RSSI reference model
@@ -151,26 +163,23 @@ function getIntersectionUltimate(circle1, circle2, circle3) {
 }
 
 function calculateAverages() {
+    const grid = 6;
+    const margin = 1;
     for (var node in map) {
         var beacon = map[node];
-        var margin = 8;
         if (beacon.measurements != null) {
             var sumX = 0;
             var countX = 0;
-            var currentAverageX = 0;
             var sumY = 0;
             var countY = 0;
-            var currentAverageY = 0;
             for (var i = 0; i < beacon.measurements.length; i++) {
-                if (Math.abs(beacon.measurements[i].x - currentAverageX) < margin) {
+                if (beacon.measurements[i].x > -margin && beacon.measurements[i].x < (grid + margin)) {
                     sumX += beacon.measurements[i].x;
                     countX += 1;
-                    currentAverageX = sumX / countX;
                 }
-                if (Math.abs(beacon.measurements[i].y - currentAverageY) < margin) {
+                if (beacon.measurements[i].y > -margin && beacon.measurements[i].y < (grid + margin)) {
                     sumY += beacon.measurements[i].y;
                     countY += 1;
-                    currentAverageY = sumY / countY;
                 }
             }
             beacon.location = {
@@ -181,7 +190,39 @@ function calculateAverages() {
     }
 }
 
+function calculateErrors() {
+    for (var node in map) {
+        var beacon = map[node];
+        if (beacon.location != null) {
+            var errorX = Math.abs(beacon.location.x - beacon.real.x);
+            var errorY = Math.abs(beacon.location.y - beacon.real.y);
+            beacon.error = {
+                x: errorX,
+                y: errorY
+            };
+        }
+    }
+}
+
+function calculateAverageError() {
+    var errorX = 0;
+    var errorY = 0;
+    var count = 0;
+    for (var node in map) {
+        if (!Object.keys(cornerBeacons).includes(node)) {
+            var beacon = map[node];
+            errorX += beacon.error.x;
+            errorY += beacon.error.y;
+            count += 1;
+        }
+    }
+    var averageX = (errorX / count).toFixed(2);
+    var averageY = (errorY / count).toFixed(2);
+    console.log('Average error is {' + averageX + ', ' + averageY + '}');
+}
+
 function displayMeasurements(beacon) {
+    console.log('All measurements for ' + beacon);
     var test = map[beacon];
     for (var i = 0; i < test.measurements.length; i++) {
         console.log(i + ': ' + JSON.stringify(test.measurements[i]));
@@ -246,10 +287,15 @@ MongoClient.connect(mongoURL, function (err, db) {
         delete map['63'];
 
         calculateAverages();
+        calculateErrors();
 
         for (var node in map) {
-            console.log(node + ' - ' + JSON.stringify(map[node].location));
+            var beacon = map[node];
+            var location = '{' + beacon.location.x.toFixed(2) + ', ' + beacon.location.y.toFixed(2) + '}';
+            var error = '{' + beacon.error.x.toFixed(2) + ', ' + beacon.error.y.toFixed(2) + '}';
+            console.log(node + ': ' + location + ' with error ' + error);
         }
-        displayMeasurements('8f');
+        //displayMeasurements('8f');
+        calculateAverageError();
     });
 });
