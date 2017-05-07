@@ -305,16 +305,35 @@ MongoClient.connect(mongoURL, function (err, db) {
         // Calculate average
         for (var node in map) {
             var beacon = map[node];
+            var margin = 8;
             if (beacon.measurements != null) {
                 var sumX = 0;
+                var countX = 0;
+                var currentAverageX = 0;
                 var sumY = 0;
+                var countY = 0;
+                var currentAverageY = 0;
                 for (var i = 0; i < beacon.measurements.length; i++) {
-                    sumX += beacon.measurements[i].x;
-                    sumY += beacon.measurements[i].y;
+                    if (Math.abs(beacon.measurements[i].x - currentAverageX) < margin) {
+                        sumX += beacon.measurements[i].x;
+                        countX += 1;
+                        currentAverageX = sumX / countX;
+                    }
+                    if (Math.abs(beacon.measurements[i].y - currentAverageY) < margin) {
+                        sumY += beacon.measurements[i].y;
+                        countY += 1;
+                        currentAverageY = sumY / countY;
+                    }
+                    /*sumX += beacon.measurements[i].x;
+                    sumY += beacon.measurements[i].y;*/
                 }
-                beacon.location = {
+                /*beacon.location = {
                     x: sumX / beacon.measurements.length,
                     y: sumY / beacon.measurements.length
+                }*/
+                beacon.location = {
+                    x: sumX / countX,
+                    y: sumY / countY
                 }
             }
         }
