@@ -12,11 +12,11 @@ const cornerBeacons = {
     },
     '5a': {
         x: 0,
-        y: 6,
+        y: 6
     },
     '51': {
         x: 6,
-        y: 6,
+        y: 6
     },
     '5c': {
         x: 6,
@@ -286,7 +286,7 @@ MongoClient.connect(mongoURL, function (err, db) {
                     }
                     if (triangle.length < 3) continue;
                     // Firstly define the location from which signal was emitted
-                    // Beacuse even smallest number with RSSI formula gives like 1 meter
+                    // Because even smallest number with RSSI formula gives like 1 meter
                     var origin = getIntersection(triangle[0], triangle[1], triangle[2]);
                     if (!origin) continue;
                     control.push({
@@ -337,6 +337,18 @@ MongoClient.connect(mongoURL, function (err, db) {
                 }
             }
         }
+
+        // Adding location 
+        map['5d'].location = {x : 0, y : 0};
+        map['5a'].location = {x : 0, y : 6};
+        map['51'].location = {x : 6, y : 6};
+        map['5c'].location = {x : 6, y : 0};
+
+        delete map['59'];
+        delete map['60'];
+        delete map['61'];
+        delete map['63'];
+
         for (var node in map) {
             console.log(node + ' - ' + JSON.stringify(map[node].location));
         }
