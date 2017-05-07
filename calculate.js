@@ -36,7 +36,9 @@ const model = {
 };
 function getDistance(rssi) {
     const x = rssi / model.refRssi;
-    return model.a * Math.pow(x, model.b);
+    var distance = model.a * Math.pow(x, model.b);
+    //console.log('Given ' + rssi + ' is ' + distance + 'm');
+    return distance;
 };
 
 // Beacon helpers
@@ -47,15 +49,14 @@ function isBeaconIDValid(id) {
 function getBeaconID(id) {
     return id.substring(id.length - 2);
 }
-function getClosest(beacons) {
+function getClosest(beacons, min = -40) {
     var closest = null;
-    var minDistance = -100;
+    var minDistance = min;
     for (var beaconID in beacons) {
         if (isBeaconIDValid(beaconID)) {
             var distance = beacons[beaconID];
             if (distance > minDistance) {
-                closest = {};
-                closest[beaconID] = distance;
+                closest = beaconID;
                 minDistance = distance;
             }
         }
@@ -263,9 +264,8 @@ MongoClient.connect(mongoURL, function (err, db) {
             var doc = docs[i];
             var target = getClosest(doc.payload.beacons);
             if (target != null) {
-                var targetID = Object.keys(target)[0];
-                var distToTarget = getDistance(doc.payload.beacons[targetID]);
-                var shortID = getBeaconID(targetID);
+                var distToTarget = getDistance(doc.payload.beacons[target]);
+                var shortID = getBeaconID(target);
                 if (!Object.keys(cornerBeacons).includes(shortID)) {
                     var triangle = [];
                     var control = [];
@@ -352,5 +352,9 @@ MongoClient.connect(mongoURL, function (err, db) {
         for (var node in map) {
             console.log(node + ' - ' + JSON.stringify(map[node].location));
         }
+        /*var test = map['64'];
+        for (var i = 0; i < test.measurements.length; i++) {
+            console.log(JSON.stringify(test.measurements[i]));
+        }*/
     });
 });
